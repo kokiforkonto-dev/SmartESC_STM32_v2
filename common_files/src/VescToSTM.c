@@ -24,8 +24,7 @@ stm_state VescToSTM_mode;
 float adc_1;
 float adc_2;
 
-float motor_voltage; //calculates motor voltage from ERPM and flux linkage
-
+float motor_voltage;
 
 typedef struct {
 	uint16_t battery_cut_start;
@@ -37,7 +36,7 @@ typedef struct {
 
 fp_struct fp;
 
-volatile bool pwm_force; //State of PWM force on
+volatile bool pwm_force;
 
 int32_t current_to_torque(int32_t curr_ma){
 	float ret = curr_ma * CURRENT_FACTOR_mA;
@@ -86,7 +85,6 @@ bool VescToSTM_overspeed(){
 
 int16_t VescToSTM_Iq_lim_hook(int16_t iq){
 
-	//Do temperature Iq limit
 	uint16_t temp = NTC_GetAvTemp_d(pMCT[M1]->pTemperatureSensor);
 	if(temp < fp.temp_cut_start){
 		app_adc_set_mode(M365_MODE_TEMP);
@@ -95,9 +93,8 @@ int16_t VescToSTM_Iq_lim_hook(int16_t iq){
 		app_adc_clear_mode(M365_MODE_TEMP);
 	}
 
-	//Do battery Iq limit
 	if(VescToSTM_mode != STM_STATE_BRAKE){
-		uint16_t Vin = (uint16_t)(VescToSTM_get_bus_voltage() * BATTERY_VOLTAGE_GAIN);
+		uint16_t Vin = VBS_GetAvBusVoltage_d(pMCT[M1]->pBusVoltageSensor);
 		if(Vin < fp.battery_cut_start){
 			if(Vin < fp.battery_cut_end){
 				iq=0;
@@ -107,7 +104,6 @@ int16_t VescToSTM_Iq_lim_hook(int16_t iq){
 		}
 	}
 
-	//Do PWM off feature
 	if(fp.minimum_current>0 && pMCI[M1]->pSTM->hFaultOccurred == 0){
 		if(pwm_force == false && abs(iq) <= fp.minimum_current && abs(FW_M1.AvVolt_qd.q) < MIN_DUTY_PWM){
 			int32_t erpm = VescToSTM_get_erpm_fast()*2;
@@ -155,6 +151,7 @@ static int16_t erpm_to_int16(int32_t erpm){
 	int32_t out = ((int32_t)HALL_M1._Super.DPPConvFactor * speed) / ((int32_t) SPEED_UNIT * (int32_t)HALL_M1._Super.hMeasurementFrequency);
 	return out;
 }
+
 static int last_y;
 void VescToStm_nunchuk_update_erpm(){
 	if(VescToSTM_mode == STM_STATE_NUNCHUCK){
@@ -306,7 +303,6 @@ void VescToSTM_pwm_start(void){
 		PWMC_SwitchOnPWM(&PWM_Handle_M1._Super);
 	}
 }
-
 void VescToSTM_update_torque(int32_t q, int32_t min_erpm, int32_t max_erpm){
 	q *= DIR_MUL;
 	if(q >= 0){
@@ -335,6 +331,7 @@ void VescToSTM_set_torque(int32_t current){
 	utils_truncate_number_int(&q, SpeednTorqCtrlM1.MinNegativeTorque, SpeednTorqCtrlM1.MaxPositiveTorque);
 	VescToSTM_update_torque(q, mc_conf.lo_min_erpm, mc_conf.lo_max_erpm);
 }
+
 void VescToSTM_set_brake_current_rel(float val) {
 	VescToSTM_set_brake(val * fabsf(mc_conf.lo_current_min)*1000);
 }
@@ -411,7 +408,7 @@ void VescToSTM_set_speed(int32_t erpm){
 }
 
 float VescToSTM_get_temperature(){
-	return 25.0;
+	return NTC_GetAvTemp_C(pMCT[M1]->pTemperatureSensor);
 }
 float VescToSTM_get_temperature2(){
 	return 0.0;
@@ -433,11 +430,11 @@ float VescToSTM_get_phase_current(){
 
 float VescToSTM_get_input_current(){
 #ifdef M365
-	return (float)pMPM[M1]->_super.hAvrgElMotorPowerW/(float)VescToSTM_get_bus_voltage();
+	return (float)pMPM[M1]->_super.hAvrgElMotorPowerW/(float)VBS_GetAvBusVoltage_V(pMCT[M1]->pBusVoltageSensor);
 #endif
 
 #ifdef G30P
-	return (float)pMPM[M1]->_super.hAvrgElMotorPowerW/(float)VescToSTM_get_bus_voltage();
+	return (float)pMPM[M1]->_super.hAvrgElMotorPowerW/(float)VBS_GetAvBusVoltage_V(pMCT[M1]->pBusVoltageSensor);
 #endif
 }
 
@@ -478,9 +475,8 @@ float VescToSTM_get_Vq(){
 }
 
 float VescToSTM_get_bus_voltage(){
-    return 7.1f;
+	return (float)(VBS_GetAvBusVoltage_d(pMCT[M1]->pBusVoltageSensor)) / BATTERY_VOLTAGE_GAIN;
 }
-
 int32_t VescToSTM_get_erpm(){
 	int32_t erpm = VescToSTM_speed_to_erpm(MCI_GetAvrgMecSpeedUnit( pMCI[M1] ));
 	return erpm;
