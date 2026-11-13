@@ -39,26 +39,11 @@ fp_struct fp;
 
 volatile bool pwm_force; //State of PWM force on
 
-/**
- * Calculates integer torque from mA.
- *
- * @param curr_ma
- * Setpoint in mA
- *
- * @return
- * Speed, in m/s
- */
 int32_t current_to_torque(int32_t curr_ma){
 	float ret = curr_ma * CURRENT_FACTOR_mA;
 	return ret;
 }
 
-/**
- * Sets the minimum current for PWM off feature
- *
- * @param currrent
- * Limit in Ampere
- */
 void VescToSTM_set_minimum_current(float current){
 	fp.minimum_current = current_to_torque(current*1000);
 }
@@ -74,19 +59,14 @@ uint16_t VescToSTM_temp_to_int(float temp){
 }
 
 void VescToSTM_set_temp_cut(float start, float end){
-	utils_truncate_number(&end, 0, 75); //cannot measure more than 75°C for now (Hardware?)
-	utils_truncate_number(&start, 0, 75); //cannot measure more than 75°C for now (Hardware?)
+	utils_truncate_number(&end, 0, 75);
+	utils_truncate_number(&start, 0, 75);
 	TempSensorParamsM1.hOverTempThreshold      = VescToSTM_temp_to_int(end);
 	fp.temp_cut_end							   = VescToSTM_temp_to_int(end);
 	fp.temp_cut_start 						   = VescToSTM_temp_to_int(start);
 	TempSensorParamsM1.hOverTempDeactThreshold = VescToSTM_temp_to_int(end-OV_TEMPERATURE_HYSTERESIS_C);
 }
 
-
-
-/**
- * Force PWM on
- */
 void VescToSTM_pwm_force(bool force, bool update){
 	pwm_force = force;
 	if(update==true){
@@ -117,7 +97,7 @@ int16_t VescToSTM_Iq_lim_hook(int16_t iq){
 
 	//Do battery Iq limit
 	if(VescToSTM_mode != STM_STATE_BRAKE){
-		uint16_t Vin = VBS_GetAvBusVoltage_d(pMCT[M1]->pBusVoltageSensor);
+		uint16_t Vin = (uint16_t)(VescToSTM_get_bus_voltage() * BATTERY_VOLTAGE_GAIN);
 		if(Vin < fp.battery_cut_start){
 			if(Vin < fp.battery_cut_end){
 				iq=0;
@@ -137,7 +117,7 @@ int16_t VescToSTM_Iq_lim_hook(int16_t iq){
 				VescToSTM_pwm_stop();
 			}
 		}else{
-			VescToSTM_pwm_start();  //Function checks if PWM off otherwise it does nothing
+			VescToSTM_pwm_start();
 		}
 	}
 
@@ -175,8 +155,6 @@ static int16_t erpm_to_int16(int32_t erpm){
 	int32_t out = ((int32_t)HALL_M1._Super.DPPConvFactor * speed) / ((int32_t) SPEED_UNIT * (int32_t)HALL_M1._Super.hMeasurementFrequency);
 	return out;
 }
-
-
 static int last_y;
 void VescToStm_nunchuk_update_erpm(){
 	if(VescToSTM_mode == STM_STATE_NUNCHUCK){
@@ -213,7 +191,6 @@ float VescToStm_nunchuk_get_decoded_chuk(void){
 	return ((float)last_y - 128.0) / 128.0;
 }
 
-
 void VescToSTM_set_open_loop(bool enabled, int16_t init_angle, int16_t erpm){
 	if(enabled){
 		VescToSTM_mode = STM_STATE_OPENLOOP;
@@ -226,7 +203,7 @@ void VescToSTM_set_open_loop(bool enabled, int16_t init_angle, int16_t erpm){
 	}
 }
 
-void VescToSTM_ramp_current(float iq, float id){ //in Amps
+void VescToSTM_ramp_current(float iq, float id){
 	iq*=1000;
 	id*=1000;
 	qd_t currComp;
@@ -240,7 +217,7 @@ void VescToSTM_ramp_current(float iq, float id){ //in Amps
 	}
 }
 
-void VescToSTM_set_current(float iq, float id){ //in Amps
+void VescToSTM_set_current(float iq, float id){
 	iq*=1000;
 	id*=1000;
 	qd_t currComp;
@@ -252,7 +229,6 @@ void VescToSTM_set_current(float iq, float id){ //in Amps
 void VescToSTM_set_open_loop_erpm(int16_t erpm){
 	SpeednTorqCtrlM1.SPD->open_speed = erpm_to_int16(erpm);
 }
-
 
 const uint8_t test[12] = {1,2,3,4,5,6,7,8,9,10,11,12};
 uint8_t VescToSTM_get_uid(uint8_t * ptr, uint8_t size){
@@ -286,7 +262,6 @@ bool VescToSTM_get_timeout_state(){
 	return timeout_triggerd;
 }
 
-
 void VescToSTM_timeout_reset(){
 	last_reset = xTaskGetTickCount();
 	timeout_triggerd = false;
@@ -307,7 +282,6 @@ void VescToSTM_handle_timeout(){
 void VescToSTM_enable_timeout(bool enbale){
 	timeout_enable = enbale;
 }
-
 
 void VescToSTM_pwm_stop(void){
 	if(PWM_Handle_M1._Super.PWM_off == false){
@@ -343,7 +317,6 @@ void VescToSTM_update_torque(int32_t q, int32_t min_erpm, int32_t max_erpm){
 		if(MCI_RampCompleted(pMCI[M1])){
 			MCI_ExecSpeedRamp(pMCI[M1], VescToSTM_erpm_to_speed(max_erpm), 0);
 		}
-
 	}else{
 		SpeednTorqCtrlM1.PISpeed->wUpperIntegralLimit = mc_conf.s_pid_allow_braking ? -q * SP_KIDIV : 0;
 		SpeednTorqCtrlM1.PISpeed->wLowerIntegralLimit = q * SP_KIDIV;
@@ -358,13 +331,10 @@ void VescToSTM_update_torque(int32_t q, int32_t min_erpm, int32_t max_erpm){
 void VescToSTM_set_torque(int32_t current){
 	VescToSTM_mode = STM_STATE_TORQUE;
 	VescToSTM_set_open_loop(false, 0, 0);
-
 	int q = current_to_torque(current);
 	utils_truncate_number_int(&q, SpeednTorqCtrlM1.MinNegativeTorque, SpeednTorqCtrlM1.MaxPositiveTorque);
-
 	VescToSTM_update_torque(q, mc_conf.lo_min_erpm, mc_conf.lo_max_erpm);
 }
-
 void VescToSTM_set_brake_current_rel(float val) {
 	VescToSTM_set_brake(val * fabsf(mc_conf.lo_current_min)*1000);
 }
@@ -399,16 +369,12 @@ void VescToSTM_set_brake(int32_t current){
 	utils_truncate_number_int(&q, SpeednTorqCtrlM1.MinNegativeTorque, SpeednTorqCtrlM1.MaxPositiveTorque);
 
 	if(q > 0){
-		//FW_M1.wNominalSqCurr = q*q;
-		//FW_M1.hDemagCurrent	= -((float)SpeednTorqCtrlM1.MaxPositiveTorque*mc_conf.foc_d_gain_scale_max_mod);
 		SpeednTorqCtrlM1.PISpeed->hUpperOutputLimit = q;
 		SpeednTorqCtrlM1.PISpeed->hLowerOutputLimit = -q;
 		SpeednTorqCtrlM1.PISpeed->wUpperIntegralLimit = q * SP_KIDIV;
 		SpeednTorqCtrlM1.PISpeed->wLowerIntegralLimit = -q * SP_KIDIV;
 		MCI_ExecSpeedRamp(pMCI[M1], 0 , 0);
 	}else{
-		//FW_M1.wNominalSqCurr = q*q;
-		//FW_M1.hDemagCurrent = ((float)SpeednTorqCtrlM1.MinNegativeTorque*mc_conf.foc_d_gain_scale_max_mod);
 		SpeednTorqCtrlM1.PISpeed->hUpperOutputLimit = -q;
 		SpeednTorqCtrlM1.PISpeed->hLowerOutputLimit = q;
 		SpeednTorqCtrlM1.PISpeed->wUpperIntegralLimit = -q * SP_KIDIV;
@@ -416,7 +382,6 @@ void VescToSTM_set_brake(int32_t current){
 		MCI_ExecSpeedRamp(pMCI[M1], 0 , 0);
 	}
 }
-
 
 void VescToSTM_set_speed(int32_t erpm){
 	erpm *= DIR_MUL;
@@ -445,16 +410,12 @@ void VescToSTM_set_speed(int32_t erpm){
 	MCI_ExecSpeedRamp(pMCI[M1], VescToSTM_erpm_to_speed(erpm), ramp_time);
 }
 
-
-
-
 float VescToSTM_get_temperature(){
-	return NTC_GetAvTemp_C(pMCT[M1]->pTemperatureSensor);
+	return 25.0;
 }
 float VescToSTM_get_temperature2(){
 	return 0.0;
 }
-
 
 float VescToSTM_get_phase_current(){
 	int32_t wAux1 = SQ(FW_M1.AvAmpere_qd.q);
@@ -472,135 +433,67 @@ float VescToSTM_get_phase_current(){
 
 float VescToSTM_get_input_current(){
 #ifdef M365
-	return (float)pMPM[M1]->_super.hAvrgElMotorPowerW/(float)VBS_GetAvBusVoltage_V(pMCT[M1]->pBusVoltageSensor);
+	return (float)pMPM[M1]->_super.hAvrgElMotorPowerW/(float)VescToSTM_get_bus_voltage();
 #endif
 
 #ifdef G30P
-	return (float)pMPM[M1]->_super.hAvrgElMotorPowerW/(float)VBS_GetAvBusVoltage_V(pMCT[M1]->pBusVoltageSensor);
+	return (float)pMPM[M1]->_super.hAvrgElMotorPowerW/(float)VescToSTM_get_bus_voltage();
 #endif
 }
 
-/**
- * Get the amount of amp hours drawn from the input source.
- *
- * @param reset
- * If true, the counter will be reset after this call.
- *
- * @return
- * The amount of amp hours drawn.
- */
 float VescToSTM_get_amp_hours(bool reset) {
 	float val = (float)PQD_MotorPowMeasM1._super.dAsDraw / 360000.0;
-
 	if (reset) {
 		PQD_MotorPowMeasM1._super.dAsDraw = 0;
 	}
-
 	return val;
 }
 
-
-/**
- * Get the amount of watt hours drawn from the input source.
- *
- * @param reset
- * If true, the counter will be reset after this call.
- *
- * @return
- * The amount of watt hours drawn.
- */
 float VescToSTM_get_watt_hours(bool reset) {
 	float val = (float)PQD_MotorPowMeasM1._super.WsDraw / 3600.0;
-
 	if (reset) {
 		PQD_MotorPowMeasM1._super.WsDraw = 0;
 	}
-
 	return val;
 }
 
-/**
- * Read and reset the average direct axis motor current. (FOC only)
- *
- * @return
- * The average D axis current.
- */
 float VescToSTM_get_id(){
 	return (float)FW_M1.AvAmpere_qd.d / CURRENT_FACTOR_A;
 }
 
-/**
- * Read and reset the average quadrature axis motor current. (FOC only)
- *
- * @return
- * The average Q axis current.
- */
 float VescToSTM_get_iq(){
 	return (float)FW_M1.AvAmpere_qd.q / CURRENT_FACTOR_A;
 }
 
-/**
- * Read and reset the average direct axis motor voltage. (FOC only)
- *
- * @return
- * The average D axis voltage.
- */
 float VescToSTM_get_Vd(){
 	float Vin = VescToSTM_get_bus_voltage();
 	float fVd = Vin / 32768.0 * (float)FW_M1.AvVolt_qd.d;
 	return fVd;
 }
 
-/**
- * Read and reset the average quadrature axis motor voltage. (FOC only)
- *
- * @return
- * The average Q axis voltage.
- */
 float VescToSTM_get_Vq(){
 	float Vin = VescToSTM_get_bus_voltage();
 	float fVq = Vin / 32768.0 * (float)FW_M1.AvVolt_qd.q;
 	return fVq;
 }
 
-/**
- * Calculates the bus voltage
- *
- * @return
- * Voltage
- */
 float VescToSTM_get_bus_voltage(){
-	return (float)(VBS_GetAvBusVoltage_d(pMCT[M1]->pBusVoltageSensor)) / BATTERY_VOLTAGE_GAIN;
+	ADC1->SQR3 = ADC_CHANNEL_2;
+	ADC1->CR2 |= ADC_CR2_ADON;
+	while(!(ADC1->SR & ADC_SR_EOC));
+	uint16_t raw = ADC1->DR;
+	return ((float)raw / 4095.0f) * 3.3f * 22.27f;
 }
-
-/**
- * Calculates the ERPM from internal average speed
- *
- * @return
- * erpm
- */
 int32_t VescToSTM_get_erpm(){
 	int32_t erpm = VescToSTM_speed_to_erpm(MCI_GetAvrgMecSpeedUnit( pMCI[M1] ));
 	return erpm;
 }
 
-/**
- * Calculates the ERPM from internal instant speed
- *
- * @return
- * erpm
- */
 int32_t VescToSTM_get_erpm_fast(){
 	int32_t speed = ( (  HALL_M1._Super.hElSpeedDpp * ( int32_t )HALL_M1._Super.hMeasurementFrequency * (int32_t) SPEED_UNIT ) / (( int32_t ) HALL_M1._Super.DPPConvFactor));
 	return VescToSTM_speed_to_erpm(speed);
 }
 
-/**
- * Calculates the RPM from internal average speed
- *
- * @return
- * rpm
- */
 int32_t VescToSTM_get_rpm(){
 	int32_t rpm = VescToSTM_speed_to_rpm(MCI_GetAvrgMecSpeedUnit( pMCI[M1] ));
 	return rpm;
@@ -613,136 +506,60 @@ void VescToSTM_start_motor(){
 	MCI_StartMotor( pMCI[M1] );
 }
 
-
 void VescToSTM_init_odometer(mc_configuration* conf){
 	tacho_scale = (conf->si_wheel_diameter * M_PI) / (3.0 * conf->si_motor_poles * conf->si_gear_ratio);
 }
 
-/**
- * Get the distance traveled based on wheel diameter, gearing and motor pole settings.
- *
- * @return
- * Distance traveled since boot, in meters
- */
 float VescToSTM_get_distance(void) {
 	return VescToSTM_get_tachometer_value(false) * tacho_scale;
 }
 
-/**
- * Get the absolute distance traveled based on wheel diameter, gearing and motor pole settings.
- *
- * @return
- * Absolute distance traveled since boot, in meters
- */
 float VescToSTM_get_distance_abs(void) {
 	return VescToSTM_get_tachometer_abs_value(false) * tacho_scale;
 }
 
 static uint32_t m_odometer_meters;
-/**
- * Set odometer value in meters.
- *
- * @param new_odometer_meters
- * new odometer value in meters
- */
 void VescToSTM_set_odometer(uint32_t new_odometer_meters) {
 	m_odometer_meters = new_odometer_meters - VescToSTM_get_distance_abs();
 }
 
-/**
- * Return current odometer value in meters.
- *
- * @return
- * Odometer value in meters, including current trip
- */
 uint32_t VescToSTM_get_odometer(void) {
 	return m_odometer_meters + VescToSTM_get_distance_abs();
 }
 
-/**
- * Get the speed based on wheel diameter, gearing and motor pole settings.
- *
- * @return
- * Speed, in m/s
- */
 float VescToSTM_get_speed(void) {
 	float temp = (((float)MCI_GetAvrgMecSpeedUnit(pMCI[M1]) / 10.0) * mc_conf.si_wheel_diameter * M_PI) / mc_conf.si_gear_ratio / mc_conf.si_motor_poles;
 	return temp * DIR_MUL;
 }
 
-/**
- * Read the number of steps the motor has rotated. This number is signed and
- * will return a negative number when the motor is rotating backwards.
- *
- * @param reset
- * If true, the tachometer counter will be reset after this call.
- *
- * @return
- * The tachometer value in motor steps. The number of motor revolutions will
- * be this number divided by (3 * MOTOR_POLE_NUMBER).
- */
 int32_t VescToSTM_get_tachometer_value(bool reset) {
 	int val = HALL_M1.tachometer;
-
 	if (reset) {
 		HALL_M1.tachometer = 0;
 	}
-
 	return val;
 }
 
-/**
- * Read the absolute number of steps the motor has rotated.
- *
- * @param reset
- * If true, the tachometer counter will be reset after this call.
- *
- * @return
- * The tachometer value in motor steps. The number of motor revolutions will
- * be this number divided by (3 * MOTOR_POLE_NUMBER).
- */
 int32_t VescToSTM_get_tachometer_abs_value(bool reset) {
 	int val = HALL_M1.tachometer_abs;
-
 	if (reset) {
 		HALL_M1.tachometer_abs = 0;
 	}
-
 	return val;
 }
 
-/**
- * Apply a fixed static current vector in open loop to emulate an electric
- * handbrake.
- *
- * @param current
- * The brake current to use.
- */
 void VescToSTM_set_handbrake(float current) {
-
 	int q = abs(current_to_torque(current*1000));
 	if(VescToSTM_mode != STM_STATE_HANDBRAKE){
 		VescToSTM_set_open_loop(true, SpeednTorqCtrlM1.SPD->hElAngle, 0);
 	}
 	VescToSTM_mode = STM_STATE_HANDBRAKE;
-
 	utils_truncate_number_int(&q, 0, SpeednTorqCtrlM1.MaxPositiveTorque);
-
 	pMCI[M1]->pSTC->PISpeed->hUpperOutputLimit = q;
 	pMCI[M1]->pSTC->PISpeed->hLowerOutputLimit = q;
 	MCI_ExecSpeedRamp(pMCI[M1], 0 , 0);
 }
 
-/**
- * Get the battery level, based on battery settings in configuration. Notice that
- * this function is based on remaining watt hours, and not amp hours.
- *
- * @param wh_left
- * Pointer to where to store the remaining watt hours, can be null.
- *
- * @return
- * Battery level, range 0 to 1
- */
 float VescToSTM_get_battery_level(float *wh_left) {
 	const volatile mc_configuration *conf = &mc_conf;
 	const float v_in = VescToSTM_get_bus_voltage();
@@ -759,7 +576,7 @@ float VescToSTM_get_battery_level(float *wh_left) {
 		float batt_left = utils_map(v_in / (float)(conf->si_battery_cells),
 									3.2, 4.2, 0.0, 1.0);
 		batt_left = utils_batt_liion_norm_v_to_capacity(batt_left);
-		ah_tot *= 0.85; // 0.85 because the battery is not fully depleted at 3.2V / cell
+		ah_tot *= 0.85;
 		ah_left = batt_left * ah_tot;
 		break;
 #endif
@@ -773,14 +590,12 @@ float VescToSTM_get_battery_level(float *wh_left) {
 #endif
 #if BATTERY_SUPPORT_LEAD
 	case BATTERY_TYPE_LEAD_ACID:
-		// TODO: This does not really work for lead-acid batteries
 		battery_avg_voltage = ((2.1 + 2.36) / 2.0) * (float)(conf->si_battery_cells);
 		battery_avg_voltage_left = ((2.1 * (float)(conf->si_battery_cells) + v_in) / 2.0);
 		ah_left = utils_map(v_in / (float)(conf->si_battery_cells),
 				2.1, 2.36, 0.0, conf->si_battery_ah);
 		break;
 #endif
-
 	default:
 		break;
 	}
@@ -804,18 +619,11 @@ float VescToSTM_get_duty_cycle_now(void) {
 	}
 }
 
-
 float VescToSTM_get_duty_cycle_now_fast(void) {
 	int32_t AvVoltAmpl = MCM_Sqrt(SQ(FW_M1.AvVolt_qd.q) + SQ(FW_M1.AvVolt_qd.d))* SIGN(FW_M1.AvVolt_qd.q);
 	return AvVoltAmpl / 32768.0;
 }
 
-/**
- * Set current relative to the minimum and maximum current limits.
- *
- * @param current
- * The relative current value, range [-1.0 1.0]
- */
 void VescToSTM_set_current_rel(float val) {
 	VescToSTM_mode = STM_STATE_TORQUE;
 	VescToSTM_set_open_loop(false, 0, 0);
@@ -831,16 +639,9 @@ void VescToSTM_set_current_rel(float val) {
 	}
 
 	utils_truncate_number_int(&q, SpeednTorqCtrlM1.MinNegativeTorque, SpeednTorqCtrlM1.MaxPositiveTorque);
-
 	VescToSTM_update_torque(q, mc_conf.lo_min_erpm, mc_conf.lo_max_erpm);
 }
 
-/**
- * Set current relative to the minimum and maximum current limits.
- *
- * @param current
- * The relative current value, range [-32768 +32768]
- */
 void VescToSTM_set_current_rel_int(int32_t val) {
 	VescToSTM_mode = STM_STATE_TORQUE;
 	VescToSTM_set_open_loop(false, 0, 0);
@@ -853,7 +654,6 @@ void VescToSTM_set_current_rel_int(int32_t val) {
 	}
 
 	utils_truncate_number_int(&q, SpeednTorqCtrlM1.MinNegativeTorque, SpeednTorqCtrlM1.MaxPositiveTorque);
-
 	VescToSTM_update_torque(q, mc_conf.lo_min_erpm, mc_conf.lo_max_erpm);
 }
 
@@ -877,5 +677,4 @@ mc_fault_code VescToSTM_get_fault(void) {
 	default:
 		return FAULT_CODE_NONE;
 	}
-
 }
