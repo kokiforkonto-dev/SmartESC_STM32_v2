@@ -245,18 +245,30 @@ uint8_t RCM_RegisterRegConv(RegConv_t * regConv)
  */
 uint16_t RCM_ExecRegularConv (uint8_t handle)
 {
-  uint16_t retVal;
+  ADC_TypeDef * adc = RCM_handle_array[handle]->regADC;
+  uint32_t ch = RCM_handle_array[handle]->channel;
 
-  LL_ADC_REG_SetSequencerRanks( RCM_handle_array[handle]->regADC,
-                                LL_ADC_REG_RANK_1,
-                                __LL_ADC_DECIMAL_NB_TO_CHANNEL( RCM_handle_array[handle]->channel ) );
+  __disable_irq();
+  uint32_t old_cr1 = adc->CR1;
+  uint32_t old_cr2 = adc->CR2;
+  uint32_t old_sqr1 = adc->SQR1;
+  uint32_t old_sqr3 = adc->SQR3;
 
-  LL_ADC_REG_ReadConversionData12( RCM_handle_array[handle]->regADC );
+  adc->CR1 = 0;
+  adc->SQR1 = 0;
+  adc->SQR3 = ch;
+  adc->CR2 = ADC_CR2_ADON | ADC_CR2_EXTTRIG | (7UL << 17);
+  adc->CR2 |= ADC_CR2_SWSTART;
+  while ((adc->SR & ADC_SR_EOC) == 0u) {}
+  uint16_t retVal = (uint16_t)(adc->DR & 0x0FFFU);
 
-    LL_ADC_REG_StartConversionSWStart(RCM_handle_array[handle]->regADC);
-  while ( LL_ADC_IsActiveFlag_EOS (RCM_handle_array[handle]->regADC ) == 0u) {}
-  retVal = LL_ADC_REG_ReadConversionData12( RCM_handle_array[handle]->regADC );
-return retVal;
+  adc->CR1 = old_cr1;
+  adc->SQR1 = old_sqr1;
+  adc->SQR3 = old_sqr3;
+  adc->CR2 = old_cr2;
+  __enable_irq();
+
+  return retVal;
 }
 
 /**
