@@ -4,6 +4,8 @@
 
 #ifndef APP_PRODUCT_H_
 #define APP_PRODUCT_H_
+#undef G30P
+#define M365
  /*  Phase current (int16_t 0-to-peak) = (Phase current (A 0-to-peak)* 32767 * Rshunt *
                                    *Amplifying network gain)/(MCU supply voltage/2)
 */
