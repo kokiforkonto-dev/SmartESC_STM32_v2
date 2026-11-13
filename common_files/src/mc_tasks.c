@@ -846,13 +846,13 @@ __weak void TSK_SafetyTask_PWMOFF(uint8_t bMotor)
   uint16_t CodeReturn = MC_NO_ERROR;
   uint16_t errMask[NBR_OF_MOTORS] = {VBUS_TEMP_ERR_MASK};
 
-  CodeReturn |= errMask[bMotor] & NTC_CalcAvTemp(pTemperatureSensor[bMotor]); /* check for fault if FW protection is activated. It returns MC_OVER_TEMP or MC_NO_ERROR */
+// CodeReturn |= errMask[bMotor] & NTC_CalcAvTemp(pTemperatureSensor[bMotor]);
   CodeReturn |= PWMC_CheckOverCurrent(pwmcHandle[bMotor]);                    /* check for fault. It return MC_BREAK_IN or MC_NO_FAULTS (for STM32F30x can return MC_OVER_VOLT in case of HW Overvoltage) */
   CodeReturn |= CURR_CalcMainCurrent(pMainCurrentSensor);
 
-  if(bMotor == M1)
-  {
-	  uint16_t voltage_fault = RVBS_CalcAvVbus(pBusSensorM1);
+if(bMotor == M1)
+{
+	  uint16_t voltage_fault = MC_NO_ERROR;
 	  if(voltage_fault==MC_UNDER_VOLT){
 		  CodeReturn |=  errMask[bMotor] & voltage_fault;
 
