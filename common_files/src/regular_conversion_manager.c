@@ -249,6 +249,9 @@ uint16_t RCM_ExecRegularConv (uint8_t handle)
   uint32_t ch = RCM_handle_array[handle]->channel;
 
   __disable_irq();
+  RCC->APB2ENR |= RCC_APB2ENR_IOPAEN | RCC_APB2ENR_ADC1EN;
+  GPIOA->CRL &= ~((0xFUL << 0) | (0xFUL << 8));
+
   uint32_t old_cr1 = adc->CR1;
   uint32_t old_cr2 = adc->CR2;
   uint32_t old_sqr1 = adc->SQR1;
@@ -258,6 +261,7 @@ uint16_t RCM_ExecRegularConv (uint8_t handle)
   adc->SQR1 = 0;
   adc->SQR3 = ch;
   adc->CR2 = ADC_CR2_ADON | ADC_CR2_EXTTRIG | (7UL << 17);
+  for(volatile int i = 0; i < 50; i++);
   adc->CR2 |= ADC_CR2_SWSTART;
   while ((adc->SR & ADC_SR_EOC) == 0u) {}
   uint16_t retVal = (uint16_t)(adc->DR & 0x0FFFU);
