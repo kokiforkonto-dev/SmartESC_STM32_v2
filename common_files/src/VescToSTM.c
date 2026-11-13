@@ -478,12 +478,13 @@ float VescToSTM_get_Vq(){
 }
 
 float VescToSTM_get_bus_voltage(){
+	__disable_irq();
 	uint32_t old_cr1 = ADC1->CR1;
 	uint32_t old_cr2 = ADC1->CR2;
 	uint32_t old_sqr1 = ADC1->SQR1;
 	uint32_t old_sqr3 = ADC1->SQR3;
 
-	ADC1->CR1 &= ~ADC_CR1_SCAN;
+	ADC1->CR1 = 0;
 	ADC1->SQR1 = 0;
 	ADC1->SQR3 = ADC_CHANNEL_2;
 	ADC1->CR2 = ADC_CR2_ADON | ADC_CR2_EXTTRIG | ADC_CR2_EXTSEL;
@@ -495,6 +496,7 @@ float VescToSTM_get_bus_voltage(){
 	ADC1->SQR1 = old_sqr1;
 	ADC1->SQR3 = old_sqr3;
 	ADC1->CR2 = old_cr2;
+	__enable_irq();
 
 	return ((float)raw / 4095.0f) * 3.3f * 22.27f;
 }
