@@ -475,7 +475,7 @@ float VescToSTM_get_Vq(){
 }
 
 float VescToSTM_get_bus_voltage(){
-	return (float)(VBS_GetAvBusVoltage_d(pMCT[M1]->pBusVoltageSensor)) / BATTERY_VOLTAGE_GAIN;
+	return ((float)(VBS_GetAvBusVoltage_d(pMCT[M1]->pBusVoltageSensor)) / BATTERY_VOLTAGE_GAIN) * 0.799f;
 }
 int32_t VescToSTM_get_erpm(){
 	int32_t erpm = VescToSTM_speed_to_erpm(MCI_GetAvrgMecSpeedUnit( pMCI[M1] ));
