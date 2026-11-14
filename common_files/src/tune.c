@@ -32,6 +32,8 @@
  * false: Something went wrong
  */
 bool tune_mcpwm_foc_hall_detect(float current, uint8_t *hall_table) {
+	MCI_ExecTorqueRamp(pMCI[M1], 0, 0);
+	MCI_StartMotor( pMCI[M1] );
 	VescToSTM_set_open_loop(true, 0, 0);
 	VescToSTM_pwm_force(true, true);
 	VescToSTM_enable_timeout(false);
@@ -51,7 +53,7 @@ bool tune_mcpwm_foc_hall_detect(float current, uint8_t *hall_table) {
 		for (int j = 0;j < 360;j++) {
 			float m_phase_now_override = (float)j * M_PI / 180.0;
 			pMCI[M1]->pSTC->SPD->open_angle = 65536.0 / (2 *M_PI) * m_phase_now_override;
-			vTaskDelay(1);
+			vTaskDelay(5);
 			int hall = HALL_M1.HallState;
 			sin_hall[hall] += qfp_fsin(m_phase_now_override);
 			cos_hall[hall] += qfp_fcos(m_phase_now_override);
@@ -64,7 +66,7 @@ bool tune_mcpwm_foc_hall_detect(float current, uint8_t *hall_table) {
 		for (int j = 360;j >= 0;j--) {
 			float m_phase_now_override = (float)j * M_PI / 180.0;
 			pMCI[M1]->pSTC->SPD->open_angle =65536.0 / (2 *M_PI) * m_phase_now_override;
-			vTaskDelay(1);
+			vTaskDelay(5);
 			int hall = HALL_M1.HallState;
 			sin_hall[hall] += qfp_fsin(m_phase_now_override);
 			cos_hall[hall] += qfp_fcos(m_phase_now_override);
@@ -93,24 +95,6 @@ bool tune_mcpwm_foc_hall_detect(float current, uint8_t *hall_table) {
 	return fails == 2;
 }
 
-/**
- * Lock the motor with a current and sample the voltage and current to
- * calculate the motor resistance.
- *
- * @param current
- * The locking current.
- *
- * @param samples
- * The number of samples to take.
- *
- * @param stop_after
- * Stop motor after finishing the measurement. Otherwise, the current will
- * still be applied after returning. Setting this to false is useful if you want
- * to run this function again right away, without stopping the motor in between.
- *
- * @return
- * The calculated motor resistance.
- */
 float tune_foc_measure_resistance(float current, int samples) {
 	VescToSTM_pwm_force(true, true);
 	// Disable timeout
@@ -153,24 +137,6 @@ float tune_foc_measure_resistance(float current, int samples) {
 	return (voltage_avg / current_avg) / (SQRT_3) / 2.0;
 }
 
-/**
- * Lock the motor with a current and sample the voltage and current to
- * calculate the motor resistance.
- *
- * @param current
- * The locking current.
- *
- * @param samples
- * The number of samples to take.
- *
- * @param stop_after
- * Stop motor after finishing the measurement. Otherwise, the current will
- * still be applied after returning. Setting this to false is useful if you want
- * to run this function again right away, without stopping the motor in between.
- *
- * @return
- * The calculated motor resistance.
- */
 extern PID_Handle_t *pPIDIq[NBR_OF_MOTORS];
 extern PID_Handle_t *pPIDId[NBR_OF_MOTORS];
 float tune_foc_measure_inductance(float voltage, float * used_current, uint32_t samples) {
@@ -240,23 +206,6 @@ float tune_foc_measure_inductance(float voltage, float * used_current, uint32_t 
 	return inductance / SQRT_3 / 2.0;
 }
 
-/**
- * Measure the motor inductance with short voltage pulses. The difference from the
- * other function is that this one will aim for a specific measurement current. It
- * will also use an appropriate switching frequency.
- *
- * @param curr_goal
- * The measurement current to aim for.
- *
- * @param samples
- * The number of samples to average over.
- *
- * @param *curr
- * The current that was used for this measurement.
- *
- * @return
- * The average d and q axis inductance in uH.
- */
 float tune_foc_measure_inductance_current(float curr_goal, int samples) {
 	float duty_last = 0.0;
 	for (float i = 0.2;i < 10.0;i *= 1.5) {
@@ -273,18 +222,6 @@ float tune_foc_measure_inductance_current(float curr_goal, int samples) {
 	return ind;
 }
 
-/**
- * Automatically measure the resistance and inductance of the motor with small steps.
- *
- * @param res
- * The measured resistance in ohm.
- *
- * @param ind
- * The measured inductance in microhenry.
- *
- * @return
- * True if the measurement succeeded, false otherwise.
- */
 bool tune_foc_measure_res_ind(float *res, float *ind) {
 	float current = mc_conf.l_current_max / 2.0;
 
@@ -294,34 +231,6 @@ bool tune_foc_measure_res_ind(float *res, float *ind) {
 	return true;
 }
 
-
-/**
- * Try to measure the motor flux linkage using open loop FOC control.
- *
- * @param current
- * The Q-axis current to spin up the motor.
- *
- * @param duty
- * Duty cycle % to measure at
- *
- * @param erpm_per_sec
- * Acceleration rate
- *
- * @param res
- * The motor phase resistance.
- *
- * @param linkage
- * The calculated flux linkage.
- *
- * @param linkage_undriven
- * Flux linkage measured while the motor was undriven.
- *
- * @param undriven_samples
- * Number of flux linkage samples while the motor was undriven.
- *
- * @return
- * True for success, false otherwise.
- */
 bool tune_foc_measure_flux_linkage_openloop(float current, float duty,
 		float erpm_per_sec, float res, float ind, float *linkage,
 		float *linkage_undriven, float *undriven_samples) {
