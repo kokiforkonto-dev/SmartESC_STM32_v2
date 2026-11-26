@@ -257,7 +257,7 @@ CURR_Handle_t CurrentSensorParams =
   .CurrRegConv =
   {
     .regADC = ADC1,
-    .channel = MC_ADC_CHANNEL_0,
+    .channel = MC_ADC_CHANNEL_14,
     .samplingTime = 0,
   }
 };
