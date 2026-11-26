@@ -115,7 +115,6 @@ __weak void MCboot( MCI_Handle_t* pMCIList[NBR_OF_MOTORS],MCT_Handle_t* pMCTList
   NTC_Init(&TempSensorParamsM1);
   pTemperatureSensor[M1] = &TempSensorParamsM1;
 
-  CURR_Init(&CurrentSensorParams);
   pMainCurrentSensor = &CurrentSensorParams;
 
   pREMNG[M1] = &RampExtMngrHFParamsM1;
@@ -170,7 +169,6 @@ __weak void MCboot( MCI_Handle_t* pMCIList[NBR_OF_MOTORS],MCT_Handle_t* pMCTList
 
   bMCBootCompleted = 1;
 }
-
 __weak void MC_RunMotorControlTasks(void)
 {
   if ( bMCBootCompleted ) {
@@ -403,7 +401,6 @@ __weak bool TSK_StopPermanencyTimeHasElapsedM1(void)
   }
   return (retVal);
 }
-
 #if defined (CCMRAM)
 #if defined (__ICCARM__)
 #pragma location = ".ccmram"
@@ -541,7 +538,6 @@ __weak void TSK_SafetyTask_PWMOFF(uint8_t bMotor)
 
   CodeReturn |= errMask[bMotor] & NTC_CalcAvTemp(pTemperatureSensor[bMotor]);
   CodeReturn |= PWMC_CheckOverCurrent(pwmcHandle[bMotor]);
-  CodeReturn |= CURR_CalcMainCurrent(pMainCurrentSensor);
 
   if(bMotor == M1)
   {
