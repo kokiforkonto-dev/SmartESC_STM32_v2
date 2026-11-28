@@ -407,12 +407,44 @@ void VescToSTM_set_speed(int32_t erpm){
 	MCI_ExecSpeedRamp(pMCI[M1], VescToSTM_erpm_to_speed(erpm), ramp_time);
 }
 
+static float read_ntc_channel_c(uint32_t channel) {
+	__disable_irq();
+	RCC->APB2ENR |= RCC_APB2ENR_IOPAEN | RCC_APB2ENR_ADC1EN;
+	GPIOA->CRL &= ~(0xFUL << (channel * 4U));
+
+	uint32_t old_cr1 = ADC1->CR1;
+	uint32_t old_cr2 = ADC1->CR2;
+	uint32_t old_sqr1 = ADC1->SQR1;
+	uint32_t old_sqr3 = ADC1->SQR3;
+
+	ADC1->CR1 = 0;
+	ADC1->SQR1 = 0;
+	ADC1->SQR3 = channel;
+	ADC1->CR2 = ADC_CR2_ADON | ADC_CR2_EXTTRIG | (7UL << 17);
+	for(volatile int i = 0; i < 50; i++);
+	ADC1->CR2 |= ADC_CR2_SWSTART;
+	while ((ADC1->SR & ADC_SR_EOC) == 0u) {}
+	uint16_t raw = (uint16_t)(ADC1->DR & 0x0FFFU);
+
+	ADC1->CR1 = old_cr1;
+	ADC1->SQR1 = old_sqr1;
+	ADC1->SQR3 = old_sqr3;
+	ADC1->CR2 = old_cr2;
+	__enable_irq();
+
+	if (raw < 20 || raw > 4075) return 0.0f;
+	float r_ntc = 10000.0f * ((float)raw / (4095.0f - (float)raw));
+	float temp_k = 1.0f / ((1.0f / 298.15f) + (logf(r_ntc / 10000.0f) / 3950.0f));
+	return temp_k - 273.15f;
+}
+
 float VescToSTM_get_temperature(){
-	return NTC_GetAvTemp_C(pMCT[M1]->pTemperatureSensor);
+	return read_ntc_channel_c(0);
 }
 float VescToSTM_get_temperature2(){
-	return 0.0;
+	return read_ntc_channel_c(1);
 }
+
 
 float VescToSTM_get_phase_current(){
 	int32_t wAux1 = SQ(FW_M1.AvAmpere_qd.q);
@@ -475,7 +507,7 @@ float VescToSTM_get_Vq(){
 }
 
 float VescToSTM_get_bus_voltage(){
-	return ((float)(VBS_GetAvBusVoltage_d(pMCT[M1]->pBusVoltageSensor)) / BATTERY_VOLTAGE_GAIN) * 0.799f;
+	return ((float)(VBS_GetAvBusVoltage_d(pMCT[M1]->pBusVoltageSensor)) / BATTERY_VOLTAGE_GAIN) * 0.620f;
 }
 int32_t VescToSTM_get_erpm(){
 	int32_t erpm = VescToSTM_speed_to_erpm(MCI_GetAvrgMecSpeedUnit( pMCI[M1] ));
