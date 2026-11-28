@@ -434,13 +434,13 @@ static float read_ntc_channel_c(uint32_t channel) {
 
 	if (raw < 20 || raw > 4075) return 0.0f;
 	return 23.0f + ((1985.0f - (float)raw) / 45.0f);
-}
-
 float VescToSTM_get_temperature(){
-	return read_ntc_channel_c(0);
+	uint16_t raw = RCM_ExecRegularConv(TempSensorParamsM1.TempRegConv.handle);
+	if (raw < 20 || raw > 4075) return 25.0f;
+	return 23.0f + ((1985.0f - (float)raw) / 45.0f);
 }
 float VescToSTM_get_temperature2(){
-	return read_ntc_channel_c(1);
+	return 0.0f;
 }
 
 float VescToSTM_get_phase_current(){
