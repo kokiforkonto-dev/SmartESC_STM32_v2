@@ -408,7 +408,6 @@ void VescToSTM_set_speed(int32_t erpm){
 }
 
 static float read_ntc_channel_c(uint32_t channel) {
-	__disable_irq();
 	RCC->APB2ENR |= RCC_APB2ENR_IOPAEN | RCC_APB2ENR_ADC1EN;
 	GPIOA->CRL &= ~(0xFUL << (channel * 4U));
 
@@ -421,21 +420,20 @@ static float read_ntc_channel_c(uint32_t channel) {
 	ADC1->SQR1 = 0;
 	ADC1->SQR3 = channel;
 	ADC1->CR2 = ADC_CR2_ADON | ADC_CR2_EXTTRIG | (7UL << 17);
-	for(volatile int i = 0; i < 50; i++);
+	for(volatile int i = 0; i < 30; i++);
 	ADC1->CR2 |= ADC_CR2_SWSTART;
-	while ((ADC1->SR & ADC_SR_EOC) == 0u) {}
+	uint32_t timeout = 5000;
+	while (((ADC1->SR & ADC_SR_EOC) == 0u) && (--timeout > 0u)) {}
 	uint16_t raw = (uint16_t)(ADC1->DR & 0x0FFFU);
 
 	ADC1->CR1 = old_cr1;
 	ADC1->SQR1 = old_sqr1;
 	ADC1->SQR3 = old_sqr3;
 	ADC1->CR2 = old_cr2;
-	__enable_irq();
 
-	if (raw < 20 || raw > 4075) return 0.0f;
-	float r_ntc = 10000.0f * ((float)raw / (4095.0f - (float)raw));
-	float temp_k = 1.0f / ((1.0f / 298.15f) + (logf(r_ntc / 10000.0f) / 3950.0f));
-	return temp_k - 273.15f;
+	if (raw < 50 || raw > 4040) return 0.0f;
+	// Przy 1.65 V (raw ~2048) daje 25.0 C; zmiana ~45 jednostek ADC na 1 stopien C
+	return 25.0f + ((2048.0f - (float)raw) / 45.0f);
 }
 
 float VescToSTM_get_temperature(){
@@ -444,6 +442,7 @@ float VescToSTM_get_temperature(){
 float VescToSTM_get_temperature2(){
 	return read_ntc_channel_c(1);
 }
+
 
 
 float VescToSTM_get_phase_current(){
