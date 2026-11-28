@@ -407,10 +407,12 @@ void VescToSTM_set_speed(int32_t erpm){
 	MCI_ExecSpeedRamp(pMCI[M1], VescToSTM_erpm_to_speed(erpm), ramp_time);
 }
 float VescToSTM_get_temperature(){
-	uint16_t raw = RCM_ExecRegularConv(0);
-	if (raw < 20 || raw > 4075) return 25.0f;
-	return 23.0f + ((1985.0f - (float)raw) / 45.0f);
+	uint16_t raw16 = TempSensorParamsM1.hAvTemp_d;
+	if (raw16 < 500 || raw16 > 65000) return 25.0f;
+	float raw12 = (float)raw16 / 16.0f;
+	return 23.0f + ((1985.0f - raw12) / 45.0f);
 }
+
 float VescToSTM_get_temperature2(){
 	return 0.0f;
 }
