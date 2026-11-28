@@ -439,8 +439,18 @@ static float read_ntc_channel_c(uint32_t channel) {
 	return 23.0f + ((1985.0f - (float)raw) / 45.0f);
 }
 
+}
+
+float VescToSTM_get_temperature(){
+	return read_ntc_channel_c(0);
+}
+float VescToSTM_get_temperature2(){
+	return read_ntc_channel_c(1);
+}
 
 
+
+}
 
 float VescToSTM_get_phase_current(){
 	int32_t wAux1 = SQ(FW_M1.AvAmpere_qd.q);
