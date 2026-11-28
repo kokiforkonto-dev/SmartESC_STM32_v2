@@ -183,7 +183,6 @@ void VescToStm_nunchuk_update_output(chuck_data * chuck_d){
 		}
 	}
 }
-
 float VescToStm_nunchuk_get_decoded_chuk(void){
 	return ((float)last_y - 128.0) / 128.0;
 }
@@ -406,7 +405,6 @@ void VescToSTM_set_speed(int32_t erpm){
 	if(mc_conf.s_pid_ramp_erpms_s) ramp_time = (float)(erpm * 1000) / mc_conf.s_pid_ramp_erpms_s;
 	MCI_ExecSpeedRamp(pMCI[M1], VescToSTM_erpm_to_speed(erpm), ramp_time);
 }
-
 static float read_ntc_channel_c(uint32_t channel) {
 	RCC->APB2ENR |= RCC_APB2ENR_IOPAEN | RCC_APB2ENR_ADC1EN;
 	GPIOA->CRL &= ~(0xFUL << (channel * 4U));
@@ -435,10 +433,7 @@ static float read_ntc_channel_c(uint32_t channel) {
 	ADC1->CR2 = old_cr2;
 
 	if (raw < 20 || raw > 4075) return 0.0f;
-	// Przy 1.60 V (raw ~1985) daje ~23 C; zmiana ~45 jednostek ADC na 1 stopien C
 	return 23.0f + ((1985.0f - (float)raw) / 45.0f);
-}
-
 }
 
 float VescToSTM_get_temperature(){
@@ -446,10 +441,6 @@ float VescToSTM_get_temperature(){
 }
 float VescToSTM_get_temperature2(){
 	return read_ntc_channel_c(1);
-}
-
-
-
 }
 
 float VescToSTM_get_phase_current(){
