@@ -413,8 +413,10 @@ float VescToSTM_get_temperature(){
 	return 23.0f + ((1985.0f - raw12) / 45.0f);
 }
 
-float VescToSTM_get_temperature2(){
-	return 0.0f;
+float VescToSTM_get_temperature(){
+	uint16_t raw = NTC_GetAvTemp_d(pMCT[M1]->pTemperatureSensor);
+	if (raw < 20 || raw > 4075) return 25.0f;
+	return 23.0f + ((1985.0f - (float)raw) / 45.0f);
 }
 
 float VescToSTM_get_phase_current(){
