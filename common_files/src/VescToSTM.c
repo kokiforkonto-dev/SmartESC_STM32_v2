@@ -17,6 +17,7 @@
 #include "app.h"
 #include "ninebot.h"
 #include "VescCommand.h"
+#include "regular_conversion_manager.h"
 
 static float tacho_scale;
 stm_state VescToSTM_mode;
@@ -405,35 +406,6 @@ void VescToSTM_set_speed(int32_t erpm){
 	if(mc_conf.s_pid_ramp_erpms_s) ramp_time = (float)(erpm * 1000) / mc_conf.s_pid_ramp_erpms_s;
 	MCI_ExecSpeedRamp(pMCI[M1], VescToSTM_erpm_to_speed(erpm), ramp_time);
 }
-static float read_ntc_channel_c(uint32_t channel) {
-	RCC->APB2ENR |= RCC_APB2ENR_IOPAEN | RCC_APB2ENR_ADC1EN;
-	GPIOA->CRL &= ~(0xFUL << (channel * 4U));
-
-	uint32_t old_cr1 = ADC1->CR1;
-	uint32_t old_cr2 = ADC1->CR2;
-	uint32_t old_sqr1 = ADC1->SQR1;
-	uint32_t old_sqr3 = ADC1->SQR3;
-	uint32_t old_smpr2 = ADC1->SMPR2;
-
-	ADC1->CR1 = 0;
-	ADC1->SQR1 = 0;
-	ADC1->SQR3 = channel;
-	ADC1->SMPR2 |= (7UL << (channel * 3U));
-	ADC1->CR2 = ADC_CR2_ADON | ADC_CR2_EXTTRIG | (7UL << 17);
-	for(volatile int i = 0; i < 60; i++);
-	ADC1->CR2 |= ADC_CR2_SWSTART;
-	uint32_t timeout = 5000;
-	while (((ADC1->SR & ADC_SR_EOC) == 0u) && (--timeout > 0u)) {}
-	uint16_t raw = (uint16_t)(ADC1->DR & 0x0FFFU);
-
-	ADC1->CR1 = old_cr1;
-	ADC1->SQR1 = old_sqr1;
-	ADC1->SQR3 = old_sqr3;
-	ADC1->SMPR2 = old_smpr2;
-	ADC1->CR2 = old_cr2;
-
-	if (raw < 20 || raw > 4075) return 0.0f;
-	return 23.0f + ((1985.0f - (float)raw) / 45.0f);
 float VescToSTM_get_temperature(){
 	uint16_t raw = RCM_ExecRegularConv(TempSensorParamsM1.TempRegConv.handle);
 	if (raw < 20 || raw > 4075) return 25.0f;
