@@ -1,4 +1,3 @@
-
 /**
   ******************************************************************************
   * @file    regular_conversion_manager.c
@@ -21,7 +20,7 @@
   * This software component is licensed by ST under Ultimate Liberty license
   * SLA0044, the "License"; You may not use this file except in compliance with
   * the License. You may obtain a copy of the License at:
-  *                             www.st.com/SLA0044
+  *                             ://st.com
   *
   ******************************************************************************
   */
@@ -154,7 +153,6 @@ uint8_t RCM_RegisterRegConv_WithCB (RegConv_t * regConv, RCM_exec_cb_t fctCB, vo
   }
   return handle;
 }
-
 /**
   * @brief  Registers a regular conversion.
   *
@@ -164,6 +162,12 @@ uint8_t RCM_RegisterRegConv_WithCB (RegConv_t * regConv, RCM_exec_cb_t fctCB, vo
   *
   * A regular conversion is defined by an ADC + ADC channel pair. If a registration already exists
   * for the requested ADC + ADC channel pair, the same handle will be reused.
+  *
+  * The regular conversion is registered along with a callback that is executed each time the
+  * conversion has completed. The callback is invoked with two parameters:
+  *
+  * - the handle of the regular conversion
+  * - a data pointer, supplied by uthe users at registration time.
   *
   * The registration may fail if there is no space left for additional conversions. The
   * maximum number of regular conversion that can be registered is defined by #RCM_MAX_CONV.
@@ -256,12 +260,14 @@ uint16_t RCM_ExecRegularConv (uint8_t handle)
   uint32_t old_cr2 = adc->CR2;
   uint32_t old_sqr1 = adc->SQR1;
   uint32_t old_sqr3 = adc->SQR3;
+  uint32_t old_smpr2 = adc->SMPR2;
 
   adc->CR1 = 0;
   adc->SQR1 = 0;
   adc->SQR3 = ch;
+  adc->SMPR2 |= (7UL << (ch * 3U));
   adc->CR2 = ADC_CR2_ADON | ADC_CR2_EXTTRIG | (7UL << 17);
-  for(volatile int i = 0; i < 50; i++);
+  for(volatile int i = 0; i < 60; i++);
   adc->CR2 |= ADC_CR2_SWSTART;
   while ((adc->SR & ADC_SR_EOC) == 0u) {}
   uint16_t retVal = (uint16_t)(adc->DR & 0x0FFFU);
@@ -269,12 +275,12 @@ uint16_t RCM_ExecRegularConv (uint8_t handle)
   adc->CR1 = old_cr1;
   adc->SQR1 = old_sqr1;
   adc->SQR3 = old_sqr3;
+  adc->SMPR2 = old_smpr2;
   adc->CR2 = old_cr2;
   __enable_irq();
 
   return retVal;
 }
-
 /**
  * @brief Schedules a regular conversion for execution.
  *
@@ -366,4 +372,3 @@ RCM_UserConvState_t RCM_GetUserConvState(void)
   */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
-
